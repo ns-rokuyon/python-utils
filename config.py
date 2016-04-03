@@ -4,7 +4,27 @@ import argparse
 
 
 class Config(object):
+    """
+    Config with argparse and yaml
+
+    [Usage]
+        from config import Config
+        defs = [
+            Config.Defs('file', short='f', help='Path to input file'),
+            ...
+            ]
+        conf = Config(defs)
+
+        filepath = conf.file
+
+    [CLI example]
+        $ python sample.py --file test.txt --config config.yaml
+    """
+
     class Def(object):
+        """
+        Config definition
+        """
         def __init__(self, name, short=None, nargs=None, action=None, 
                 default=None, help=None):
             self.name = name
@@ -32,6 +52,9 @@ class Config(object):
 
 
     class Item(object):
+        """
+        Config item
+        """
         def __init__(self, key, value):
             self._items = {}
             self.key = key
@@ -42,26 +65,30 @@ class Config(object):
                 self.value = value
 
         def __getattr__(self, key):
-            assert(key == self.key)
-            if self.value:
-                return self.value
+            if key == self.key:
+                if self.value:
+                    return self.value
+                else:
+                    return self
             else:
-                return self._items.get(k)
+                return self._items.get(key)
 
         def __call__(self):
             return self.value
 
-        def __cmp__(self, other):
-            if self.value < other:
-                return -1
-            elif self.value > other:
-                return 1
-            return 0
+        def __str__(self):
+            if self.value:
+                return str(self.value)
+            return None
 
 
     def __init__(self, defs, description='Config', use_cli=True,
             use_yaml=True, use_ini=True,
             yamlfile=None, inifile=None, cli_config_opt=None):
+
+        if not isinstance(defs, list): 
+            raise TypeError('defs must be list of Config.Defs')
+
         self._defs = defs
         self._items = {}
 
@@ -97,29 +124,38 @@ class Config(object):
         if use_ini:
             # TODO
             pass
-
         self._set_items()
 
+    def default(self, name):
+        ds = [ d for d in self._defs if d.name == name ]
+        return ds[0].default if ds else None
     
     def _set_items(self):
         if self._conf:
             self._items = { k: Item(k,v) for k, v in self._conf.items() }
 
-
     def __getattr__(self, name):
-        if self._args and hasattr(self._args, name):
-            return getattr(self._args, name)
-
         item = None
-        if self._conf:
-            item = self._conf.get(name)
+        value = self.default(name)
 
-        if item is None:
-            return None
+        if self._items:
+            item = self._items.get(name)
 
-        if not hasattr(item, name):
-            return None
+        # Value in config file
+        if item:
+            item = getattr(item, name)
+            if isinstance(item, Item):
+                return Item
+            else:
+                value = item
 
-        return getattr(item, name)
-                
+        # Value in command line arguments
+        if self._args and hasattr(self._args, name):
+            value = getattr(self._args, name) or value
+
+        return value
+
+    def __str__(self):
+        strs = [ s.__str__() for s in self._items ]
+        return '\n'.join(strs)
 
