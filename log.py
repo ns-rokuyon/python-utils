@@ -1,7 +1,9 @@
 # coding: utf-8
 # Simple logging module
-import sys
+import os, sys
 from datetime import datetime
+sys.path.insert(0, os.path.dirname(__file__))
+from color import colored
 
 class Level(object):
     """
@@ -45,9 +47,9 @@ class Level(object):
 
     DEBUG = Label('DEBUG', 0)
     INFO = Label('INFO', 1)
-    WARN = Label('WARN', 2)
-    ERROR = Label('ERROR', 3)
-    FATAL = Label('FATAL', 4)
+    WARN = Label('WARN', 2, color='yellow')
+    ERROR = Label('ERROR', 3, color='red')
+    FATAL = Label('FATAL', 4, color='red')
 
     @classmethod
     def labelize(cls, level):
@@ -84,7 +86,10 @@ class Logger(object):
         if level < self.min_level:
             return
         now = datetime.now().isoformat()
-        self.output.write('{} [{}] {}\n'.format(now, level, message))
+        if color:
+            text = colored('{} [{}] {}\n'.format(now, level, message), 
+                    color=color)
+            self.output.write(text)
 
     def __call__(self, *args, **kwargs):
         self.write(*args, **kwargs)
