@@ -1,6 +1,8 @@
 # coding: utf-8
 # Simple logging module
 import os, sys
+import time
+from functools import wraps
 from datetime import datetime
 sys.path.insert(0, os.path.dirname(__file__))
 from color import colored
@@ -89,11 +91,33 @@ class Logger(object):
         if color:
             text = colored('{} [{}] {}\n'.format(now, level, message), 
                     color=color)
-            self.output.write(text)
+        else:
+            text = '{} [{}] {}\n'.format(now, level, message)
+        self.output.write(text)
 
     def __call__(self, *args, **kwargs):
         self.write(*args, **kwargs)
 
+    def logging(self, func):
+        @wraps(func)
+        def f(*args, **kwargs):
+            starttime = time.time()
+            self.write('Start: {}'.format(func.__name__))
+            error = None
+            try:
+                return func(*args, **kwargs)
+            except Exception as e:
+                error = e
+            finally:
+                elapsedtime = round(time.time() - starttime, 3)
+                if error:
+                    self.write('End(Failed): {} ({}) Error={}'.format(
+                        func.__name__, elapsedtime, error_message), color='red')
+                    raise error
+                else:
+                    self.write('End(Succeeded): {} ({})'.format(
+                        func.__name__, elapsedtime), color='green')
+        return f
 
 # Default logging object
 LOG = Logger()
