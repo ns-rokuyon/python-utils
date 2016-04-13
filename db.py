@@ -11,26 +11,38 @@ class SQLite3(object):
         self.dbpath = dbpath
         self.conn = None
         self.batch_count = 0
+        self.table_names = {'sqlite_master'}
         if not noload:
             self.connect()
 
     def connect(self):
         self.conn = sqlite3.connect(self.dbpath)
+        self.table_names |= set(self.tables())
 
     def tables(self):
-        return [ t.tbl_name for t in self.select('sqlite_master') ]
+        return [t.tbl_name for t in self.select('sqlite_master')]
 
+    def _tablecheck(func):
+        def f(self, table, *args, **kwargs):
+            if not table in self.table_names:
+                raise ValueError('Invalid table name = {}'.format(table))
+            return func(self, table, *args, **kwargs)
+        return f
+
+    @_tablecheck
     def insert(self, table, values, replace=True, batch=1):
         placeholder = ','.join(['?' for _ in values])
         if replace:
             sql = 'insert or replace into {} values ({})'.format(
                     table, placeholder)
         else:
-            sql = 'insert into {} values ({})'.format(table, placeholder)
+            sql = 'insert into {} values ({})'.format(
+                    table, placeholder)
         self.conn.execute(sql, values)
         self.batch_count += 1
         self.commit_batch(batch)
 
+    @_tablecheck
     def select(self, table, where=None, limit=None):
         if where:
             wh = ' and '.join(['{} = {}'.format(k,v) for k,v in where.items()])
