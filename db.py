@@ -30,6 +30,16 @@ class SQLite3(object):
         return f
 
     @_tablecheck
+    def count(self, table, where=None):
+        if where:
+            wh = ' and '.join(['{} = {}'.format(k,v) for k,v in where.items()])
+            sql = 'select count(*) from {} where {}'.format(table, wh)
+        else:
+            sql = 'select count(*) from {}'.format(table)
+        cur = self.conn.execute(sql)
+        return cur.fetchone()[0]
+
+    @_tablecheck
     def insert(self, table, values, replace=True, batch=1):
         placeholder = ','.join(['?' for _ in values])
         if replace:
@@ -51,7 +61,7 @@ class SQLite3(object):
             sql = 'select * from {}'.format(table)
 
         if limit:
-            sql = '{} limit {}'.format(sql, limit)
+            sql = '{} limit {}'.format(sql, int(limit))
 
         cur = self.conn.execute(sql)
         cols = [ d[0] for d in cur.description ]
